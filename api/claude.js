@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
   if (!apiKey) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY environment variable not set. Add it in Vercel project settings → Environment Variables.' });
   }
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model,
         max_tokens: 1000,
         system,
         messages,

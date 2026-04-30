@@ -127,10 +127,11 @@ const safeKey = (s) => s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
 // ── Claude API helper ─────────────────────────────────────────────────────────
 const callClaude = async (system, userMsg, apiKey) => {
   const useDirectAnthropic = Boolean(apiKey?.trim());
+  const model = import.meta.env.VITE_ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
   const endpoint = useDirectAnthropic ? "https://api.anthropic.com/v1/messages" : "/api/claude";
   const headers = { "Content-Type": "application/json" };
   const body = useDirectAnthropic
-    ? { model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userMsg }] }
+    ? { model, max_tokens: 1000, system, messages: [{ role: "user", content: userMsg }] }
     : { system, messages: [{ role: "user", content: userMsg }] };
 
   if (useDirectAnthropic) {
@@ -416,7 +417,7 @@ Target: 600–700 words. Write as if handing this to them personally.`;
       setPlan(text);
       setView(VIEWS.PART_PLAN);
       await saveParticipant();
-    } catch { setPlanError("Something went wrong. Please try again."); }
+    } catch (e) { setPlanError(e.message || "Something went wrong. Please try again."); }
     finally { setPlanLoading(false); }
   };
 
