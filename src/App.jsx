@@ -125,10 +125,20 @@ const store = {
 const safeKey = (s) => s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
 
 // ── Claude API helper ─────────────────────────────────────────────────────────
-const callClaude = async (system, userMsg) => {
+const callClaude = async (system, userMsg, apiKey) => {
+  const useDirectAnthropic = Boolean(apiKey?.trim());
+  const endpoint = useDirectAnthropic ? "https://api.anthropic.com/v1/messages" : "/api/claude";
   const headers = { "Content-Type": "application/json" };
-  const body = { system, messages: [{ role: "user", content: userMsg }] };
-  const res = await fetch("/api/claude", { method: "POST", headers, body: JSON.stringify(body) });
+  const body = useDirectAnthropic
+    ? { model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userMsg }] }
+    : { system, messages: [{ role: "user", content: userMsg }] };
+
+  if (useDirectAnthropic) {
+    headers["x-api-key"] = apiKey.trim();
+    headers["anthropic-version"] = "2023-06-01";
+  }
+
+  const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(data.error || `Request failed (${res.status})`);
   return data.content?.find((b) => b.type === "text")?.text ?? "";
@@ -226,6 +236,7 @@ export default function App() {
   );
   const [role, setRole] = useState(null); // 'facilitator' | 'participant'
   const [sessionCode, setSessionCode] = useState("");
+  const [apiKey] = useState(envAnthropicKey);
   const [facPin, setFacPin] = useState("");
   const [pinInput, setPinInput] = useState("");
 
@@ -398,7 +409,7 @@ URL: planmylegacytoday.com/schedule]
 
 Target: 600–700 words. Write as if handing this to them personally.`;
     try {
-      const text = await callClaude(system, `Participant: ${name}\nOverall: ${totalPct}% — ${totalPct < 40 ? "Low" : totalPct < 75 ? "Moderate" : "High"} Readiness\n\nScores:\n${breakdown}\n\nTop 3 Gaps:\n${gapLines}`);
+      const text = await callClaude(system, `Participant: ${name}\nOverall: ${totalPct}% — ${totalPct < 40 ? "Low" : totalPct < 75 ? "Moderate" : "High"} Readiness\n\nScores:\n${breakdown}\n\nTop 3 Gaps:\n${gapLines}`, apiKey);
       if (!text) throw new Error();
       setPlan(text);
       setView(VIEWS.PART_PLAN);
@@ -435,7 +446,7 @@ Give me:
 
 Keep it tight — I'm using this in real time.`;
     try {
-      const text = await callClaude(system, userMsg);
+      const text = await callClaude(system, userMsg, apiKey);
       setGroupInsights(text);
     } catch (e) {
       setInsightsError(e.message || "Could not generate group insights.");
