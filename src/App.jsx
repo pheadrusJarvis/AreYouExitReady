@@ -125,21 +125,10 @@ const store = {
 const safeKey = (s) => s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
 
 // ── Claude API helper ─────────────────────────────────────────────────────────
-const callClaude = async (system, userMsg, apiKey) => {
-  const useDirectAnthropic = Boolean(apiKey?.trim());
-  const model = import.meta.env.VITE_ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
-  const endpoint = useDirectAnthropic ? "https://api.anthropic.com/v1/messages" : "/api/claude";
+const callClaude = async (system, userMsg) => {
   const headers = { "Content-Type": "application/json" };
-  const body = useDirectAnthropic
-    ? { model, max_tokens: 1000, system, messages: [{ role: "user", content: userMsg }] }
-    : { system, messages: [{ role: "user", content: userMsg }] };
-
-  if (useDirectAnthropic) {
-    headers["x-api-key"] = apiKey.trim();
-    headers["anthropic-version"] = "2023-06-01";
-  }
-
-  const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) });
+  const body = { system, messages: [{ role: "user", content: userMsg }] };
+  const res = await fetch("/api/claude", { method: "POST", headers, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(data.error || `Request failed (${res.status})`);
   return data.content?.find((b) => b.type === "text")?.text ?? "";
@@ -231,15 +220,12 @@ const Input = ({ label: lbl, value, onChange, placeholder, type = "text", style 
 const VIEWS = { MARKETING: 0, LANDING: 1, FAC_SETUP: 2, FAC_DASH: 3, PART_NAME: 4, PART_ASSESS: 5, PART_RESULTS: 6, PART_PLAN: 7 };
 
 export default function App() {
-  const envAnthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY || import.meta.env.VITE_ANTHROPIC_API_TOKEN || "";
-
   // Navigation — skip marketing when opening with #workshop (e.g. bookmark for facilitators)
   const [view, setView] = useState(() =>
     typeof window !== "undefined" && window.location.hash === "#workshop" ? VIEWS.LANDING : VIEWS.MARKETING
   );
   const [role, setRole] = useState(null); // 'facilitator' | 'participant'
   const [sessionCode, setSessionCode] = useState("");
-  const [apiKey] = useState(envAnthropicKey);
   const [facPin, setFacPin] = useState("");
   const [pinInput, setPinInput] = useState("");
 
@@ -412,7 +398,7 @@ URL: planmylegacytoday.com/schedule]
 
 Target: 600–700 words. Write as if handing this to them personally.`;
     try {
-      const text = await callClaude(system, `Participant: ${name}\nOverall: ${totalPct}% — ${totalPct < 40 ? "Low" : totalPct < 75 ? "Moderate" : "High"} Readiness\n\nScores:\n${breakdown}\n\nTop 3 Gaps:\n${gapLines}`, apiKey);
+      const text = await callClaude(system, `Participant: ${name}\nOverall: ${totalPct}% — ${totalPct < 40 ? "Low" : totalPct < 75 ? "Moderate" : "High"} Readiness\n\nScores:\n${breakdown}\n\nTop 3 Gaps:\n${gapLines}`);
       if (!text) throw new Error();
       setPlan(text);
       setView(VIEWS.PART_PLAN);
@@ -449,7 +435,7 @@ Give me:
 
 Keep it tight — I'm using this in real time.`;
     try {
-      const text = await callClaude(system, userMsg, apiKey);
+      const text = await callClaude(system, userMsg);
       setGroupInsights(text);
     } catch (e) {
       setInsightsError(e.message || "Could not generate group insights.");
